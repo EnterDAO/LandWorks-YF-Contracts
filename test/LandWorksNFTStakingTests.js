@@ -85,6 +85,24 @@ describe("LandWorks NFT Staking Tests", () => {
 
   });
 
+  it("Should not be able to withdraw LandWorks NFTs staked by other person", async () => {
+    const { landWorksNFTStaking, mockLandWorksNFT, mockENTR, estateRegistryMock, landRegistryMock } = await loadFixture(deployContract);
+    const accounts = await ethers.getSigners();
+
+    await mockLandWorksNFT.generateTestAssets(10, accounts[1].address, landRegistryMock.address, estateRegistryMock.address);
+
+    await mockLandWorksNFT.connect(accounts[1]).setApprovalForAll(landWorksNFTStaking.address, true);
+
+    await landWorksNFTStaking.connect(accounts[1]).stake([1, 2, 3, 4, 5]);
+
+    const balanceOfContractBefore = await mockLandWorksNFT.balanceOf(landWorksNFTStaking.address);
+
+    expect(balanceOfContractBefore.toNumber()).to.equal(5);
+
+    await expect(landWorksNFTStaking.connect(accounts[2]).withdraw([1, 2, 3, 4, 5])).revertedWith("Not owner of the token");
+
+  });
+
   it("Should generate and withdraw yield for the time staked", async () => {
     const { landWorksNFTStaking, mockLandWorksNFT, mockENTR, estateRegistryMock, landRegistryMock } = await loadFixture(deployContract);
     const accounts = await ethers.getSigners();
