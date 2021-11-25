@@ -1,0 +1,36 @@
+{
+  "name": "landworks-nft-staking",
+  "version": "1.0.0",
+  "description": "LandWorks NFT Staking contracts",
+  "main": "index.js",
+  "scripts": {
+    "compile": "npx hardhat compile",
+    "deploy": "npx hardhat run scripts/deploy.js --network",
+    "etherscan-verify": "npx hardhat verify --network",
+    "test": "npx hardhat test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/EnterDAO/LandWorks-NFT-Staking.git"
+  },
+  "author": "Stanislav Trenev <stanislav.trenev@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/EnterDAO/LandWorks-NFT-Staking/issues"
+  },
+  "homepage": "https://github.com/EnterDAO/LandWorks-NFT-Staking#readme",
+  "devDependencies": {
+    "@nomiclabs/hardhat-ethers": "^2.0.2",
+    "@nomiclabs/hardhat-etherscan": "^2.1.5",
+    "@nomiclabs/hardhat-waffle": "^2.0.1",
+    "chai": "^4.3.4",
+    "ethereum-waffle": "^3.4.0",
+    "ethers": "^5.4.5",
+    "hardhat": "^2.6.1",
+    "hardhat-abi-exporter": "^2.2.1"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.3.2",
+    "dotenv": "^10.0.0"
+  }
+}
