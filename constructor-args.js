@@ -5,4 +5,5 @@ module.exports = [
   process.env.REWARD_RATE,
   process.env.DECENTRALAND_ESTATE_REGISTRY,
   process.env.DECENTRALAND_LAND_REGISTRY,
+  process.env.METAVERSE_ID,
 ];

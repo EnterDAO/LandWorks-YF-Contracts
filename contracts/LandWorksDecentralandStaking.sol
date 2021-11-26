@@ -5,14 +5,11 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "./interfaces/ILandWorks.sol";
 import "./interfaces/IDecentralandEstateRegistry.sol";
 import "./interfaces/IERC721Consumable.sol";
 
-contract LandWorksNFTStaking is ERC721Holder, ReentrancyGuard {
-    using SafeMath for uint256;
-
+contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard {
     IERC20 public rewardsToken;
     IERC721Consumable public stakingToken;
 
@@ -27,41 +24,42 @@ contract LandWorksNFTStaking is ERC721Holder, ReentrancyGuard {
     mapping(address => uint256) private _balances;
     mapping(uint256 => address) private _stakedAssets;
 
-    address private decentralandEstateRegistry;
-    address private decentralandLandRegistry;
+    address public decentralandEstateRegistry;
+    address public decentralandLandRegistry;
+    uint public metaverseId;
 
     event Stake(
         address staker,
         uint256 amount,
-        uint256[] tokenIds,
-        uint256 time
+        uint256[] tokenIds
     );
 
     event StakeWithdraw(
         address staker,
         uint256 amount,
-        uint256[] tokenIds,
-        uint256 time
+        uint256[] tokenIds
     );
 
     event RewardsClaim(
-        address staker, 
-        uint256 amount, 
-        address stakingToken,
-        uint256 time);
+        address staker,
+        uint256 amount,
+        address stakingToken
+    );
 
     constructor(
         address _stakingToken,
         address _rewardsToken,
         uint256 _rewardRate,
         address _decentralandEstateRegistry,
-        address _decentralandLandRegistry
+        address _decentralandLandRegistry,
+        uint _metaverseId
     ) {
         stakingToken = IERC721Consumable(_stakingToken);
         rewardsToken = IERC20(_rewardsToken);
         rewardRate = _rewardRate;
         decentralandEstateRegistry = _decentralandEstateRegistry;
         decentralandLandRegistry = _decentralandLandRegistry;
+        metaverseId = _metaverseId;
     }
 
     /// @notice Stakes user's LandWorks NFTs
@@ -74,13 +72,13 @@ contract LandWorksNFTStaking is ERC721Holder, ReentrancyGuard {
             // Change the consumer of the LandWorks NFT to be the person who staked it
             stakingToken.changeConsumer(msg.sender, tokenIds[i]);
             // Increment the amount which will be staked
-            amount = amount.add(getAmountToBeStaked(tokenIds[i]));
+            amount += getAmountToBeStaked(tokenIds[i]);
             // Save who is the owner of the token
             _stakedAssets[tokenIds[i]] = msg.sender;
         }
         stake(amount);
 
-        emit Stake(msg.sender, amount, tokenIds, block.timestamp);
+        emit Stake(msg.sender, amount, tokenIds);
     }
 
     /// @notice Withdraws staked user's LandWorks NFTs
@@ -89,17 +87,20 @@ contract LandWorksNFTStaking is ERC721Holder, ReentrancyGuard {
         uint256 amount;
         for (uint256 i = 0; i < tokenIds.length; i += 1) {
             // Check if the user who withdraws is the owner
-            require(_stakedAssets[tokenIds[i]] == msg.sender, "Not owner of the token");
+            require(
+                _stakedAssets[tokenIds[i]] == msg.sender,
+                "Not owner of the token"
+            );
             // Transfer LandWorks NFTs back to the owner
             stakingToken.transferFrom(address(this), msg.sender, tokenIds[i]);
-            // Increment the amount which will be staked
-            amount = amount.add(getAmountToBeStaked(tokenIds[i]));
+            // Increment the amount which will be withdrawn
+            amount += getAmountToBeStaked(tokenIds[i]);
             // Cleanup _stakedAssets for the current tokenId
             _stakedAssets[tokenIds[i]] = address(0);
         }
         withdraw(amount);
 
-        emit StakeWithdraw(msg.sender, amount, tokenIds, block.timestamp);
+        emit StakeWithdraw(msg.sender, amount, tokenIds);
     }
 
     /// @notice Gets the represented amount/weight to be staked, based on the LandWorks NFT
@@ -117,7 +118,7 @@ contract LandWorksNFTStaking is ERC721Holder, ReentrancyGuard {
 
         // Check if the metaverseId is Decentraland
         // TODO: Check metaverseId from enumeration
-        if (landworksAsset.metaverseId == 1) {
+        if (landworksAsset.metaverseId == metaverseId) {
             // If metaverse registry is LAND, amount is 1
             if (landworksAsset.metaverseRegistry == decentralandLandRegistry) {
                 amountToBeStaked = 1;
@@ -126,8 +127,8 @@ contract LandWorksNFTStaking is ERC721Holder, ReentrancyGuard {
                 landworksAsset.metaverseRegistry == decentralandEstateRegistry
             ) {
                 IDecentralandEstateRegistry estateRegistry = IDecentralandEstateRegistry(
-                    landworksAsset.metaverseRegistry
-                );
+                        landworksAsset.metaverseRegistry
+                    );
                 amountToBeStaked = estateRegistry.getEstateSize(
                     landworksAsset.metaverseAssetId
                 );
@@ -141,26 +142,16 @@ contract LandWorksNFTStaking is ERC721Holder, ReentrancyGuard {
             return 0;
         }
         return
-            rewardPerTokenStored.add(
-                (
-                    (
-                        (block.timestamp.sub(lastUpdateTime))
-                            .mul(rewardRate)
-                            .mul(1e18)
-                    ).div(_totalSupply)
-                )
-            );
+            rewardPerTokenStored +
+            (((block.timestamp - lastUpdateTime) * rewardRate * 1e18) /
+                _totalSupply);
     }
 
     function earned(address account) public view returns (uint256) {
         return
-            (
-                (
-                    _balances[account].mul(
-                        (rewardPerToken().sub(userRewardPerTokenPaid[account]))
-                    )
-                ).div(1e18)
-            ).add(rewards[account]);
+            ((_balances[account] *
+                ((rewardPerToken() - (userRewardPerTokenPaid[account])))) /
+                1e18) + rewards[account];
     }
 
     modifier updateReward(address account) {
@@ -173,13 +164,13 @@ contract LandWorksNFTStaking is ERC721Holder, ReentrancyGuard {
     }
 
     function stake(uint256 _amount) internal updateReward(msg.sender) {
-        _totalSupply = _totalSupply.add(_amount);
-        _balances[msg.sender] = _balances[msg.sender].add(_amount);
+        _totalSupply += _amount;
+        _balances[msg.sender] += _amount;
     }
 
     function withdraw(uint256 _amount) internal updateReward(msg.sender) {
-        _totalSupply = _totalSupply.sub(_amount);
-        _balances[msg.sender] = _balances[msg.sender].sub(_amount);
+        _totalSupply -= _amount;
+        _balances[msg.sender] -= _amount;
     }
 
     function getReward() external updateReward(msg.sender) nonReentrant {
@@ -187,6 +178,10 @@ contract LandWorksNFTStaking is ERC721Holder, ReentrancyGuard {
         rewards[msg.sender] = 0;
         rewardsToken.transfer(msg.sender, reward);
 
-        emit RewardsClaim(msg.sender, reward, address(stakingToken), block.timestamp);
+        emit RewardsClaim(
+            msg.sender,
+            reward,
+            address(stakingToken)
+        );
     }
 }
