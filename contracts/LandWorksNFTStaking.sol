@@ -25,6 +25,7 @@ contract LandWorksNFTStaking is ERC721Holder, ReentrancyGuard {
 
     uint256 private _totalSupply;
     mapping(address => uint256) private _balances;
+    mapping(uint256 => address) private _stakedAssets;
 
     address private decentralandEstateRegistry;
     address private decentralandLandRegistry;
@@ -74,6 +75,8 @@ contract LandWorksNFTStaking is ERC721Holder, ReentrancyGuard {
             stakingToken.changeConsumer(msg.sender, tokenIds[i]);
             // Increment the amount which will be staked
             amount = amount.add(getAmountToBeStaked(tokenIds[i]));
+            // Save who is the owner of the token
+            _stakedAssets[tokenIds[i]] = msg.sender;
         }
         stake(amount);
 
@@ -85,10 +88,14 @@ contract LandWorksNFTStaking is ERC721Holder, ReentrancyGuard {
     function withdraw(uint256[] memory tokenIds) external nonReentrant {
         uint256 amount;
         for (uint256 i = 0; i < tokenIds.length; i += 1) {
+            // Check if the user who withdraws is the owner
+            require(_stakedAssets[tokenIds[i]] == msg.sender, "Not owner of the token");
             // Transfer LandWorks NFTs back to the owner
             stakingToken.transferFrom(address(this), msg.sender, tokenIds[i]);
             // Increment the amount which will be staked
             amount = amount.add(getAmountToBeStaked(tokenIds[i]));
+            // Cleanup _stakedAssets for the current tokenId
+            _stakedAssets[tokenIds[i]] = address(0);
         }
         withdraw(amount);
 
