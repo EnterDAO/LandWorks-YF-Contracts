@@ -18,7 +18,10 @@ LandWorks NFT owner can stake or withdraw his/hers NFTs at any time.
 
 ## Development
 
-[hardhat](https://hardhat.org/) - framework used for the development and testing of the contracts
+**Prerequisites**
+
+- [hardhat](https://hardhat.org/) - framework used for the development and testing of the contracts
+- `node version >= 14.14.0`
 
 1. After cloning, run:
 
