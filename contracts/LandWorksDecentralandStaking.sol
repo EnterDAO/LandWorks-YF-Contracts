@@ -42,8 +42,7 @@ contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard {
 
     event RewardsClaim(
         address indexed staker,
-        uint256 amount,
-        address stakingToken
+        uint256 amount
     );
 
     constructor(
@@ -135,15 +134,14 @@ contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard {
         }
         return
             rewardPerTokenStored +
-            (((block.timestamp - lastUpdateTime) * rewardRate * 1e18) /
-            totalSupply);
+            (((block.timestamp - lastUpdateTime) * rewardRate * 1e18) / totalSupply);
     }
 
     function earned(address account) public view returns (uint256) {
         return
             ((balances[account] *
-                ((rewardPerToken() - (userRewardPerTokenPaid[account])))) /
-                1e18) + rewards[account];
+                (rewardPerToken() - userRewardPerTokenPaid[account])) / 1e18) +
+            rewards[account];
     }
 
     modifier updateReward(address account) {
@@ -165,15 +163,11 @@ contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard {
         balances[msg.sender] -= _amount;
     }
 
-    function getReward() external updateReward(msg.sender) nonReentrant {
+    function getReward() external updateReward(msg.sender) {
         uint256 reward = rewards[msg.sender];
         rewards[msg.sender] = 0;
         rewardsToken.transfer(msg.sender, reward);
 
-        emit RewardsClaim(
-            msg.sender,
-            reward,
-            address(stakingToken)
-        );
+        emit RewardsClaim(msg.sender, reward);
     }
 }
