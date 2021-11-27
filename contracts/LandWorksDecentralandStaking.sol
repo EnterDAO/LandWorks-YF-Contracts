@@ -24,9 +24,10 @@ contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard {
     mapping(address => uint256) private _balances;
     mapping(uint256 => address) private _stakedAssets;
 
-    address public decentralandEstateRegistry;
+    // MetaverseId as per LandWorks protocol
+    uint256 public metaverseId;
     address public decentralandLandRegistry;
-    uint public metaverseId;
+    address public decentralandEstateRegistry;
 
     event Stake(
         address staker,
@@ -50,16 +51,17 @@ contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard {
         address _stakingToken,
         address _rewardsToken,
         uint256 _rewardRate,
-        address _decentralandEstateRegistry,
+        uint256 _metaverseId,
         address _decentralandLandRegistry,
-        uint _metaverseId
+        address _decentralandEstateRegistry
     ) {
         stakingToken = IERC721Consumable(_stakingToken);
         rewardsToken = IERC20(_rewardsToken);
         rewardRate = _rewardRate;
-        decentralandEstateRegistry = _decentralandEstateRegistry;
-        decentralandLandRegistry = _decentralandLandRegistry;
+
         metaverseId = _metaverseId;
+        decentralandLandRegistry = _decentralandLandRegistry;
+        decentralandEstateRegistry = _decentralandEstateRegistry;
     }
 
     /// @notice Stakes user's LandWorks NFTs
@@ -89,7 +91,7 @@ contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard {
             // Check if the user who withdraws is the owner
             require(
                 _stakedAssets[tokenIds[i]] == msg.sender,
-                "Not owner of the token"
+                "Staking: Not owner of the token"
             );
             // Transfer LandWorks NFTs back to the owner
             stakingToken.transferFrom(address(this), msg.sender, tokenIds[i]);
@@ -103,7 +105,7 @@ contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard {
         emit StakeWithdraw(msg.sender, amount, tokenIds);
     }
 
-    /// @notice Gets the represented amount/weight to be staked, based on the LandWorks NFT
+    /// @notice Gets the represented amount to be staked, based on the LandWorks NFT
     /// @param tokenId The tokenId of the LandWorks NFT
     function getAmountToBeStaked(uint256 tokenId)
         internal
@@ -114,25 +116,21 @@ contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard {
         ILandWorks.Asset memory landworksAsset = ILandWorks(
             address(stakingToken)
         ).assetAt(tokenId);
-        uint256 amountToBeStaked;
+        require(landworksAsset.metaverseId == metaverseId, "Staking: Invalid metaverseId");
+        require(landworksAsset.metaverseRegistry == decentralandLandRegistry
+            || landworksAsset.metaverseRegistry == decentralandEstateRegistry,
+            "Staking: Invalid metaverseRegistry");
 
-        // Check if the metaverseId is Decentraland
-        // TODO: Check metaverseId from enumeration
-        if (landworksAsset.metaverseId == metaverseId) {
-            // If metaverse registry is LAND, amount is 1
-            if (landworksAsset.metaverseRegistry == decentralandLandRegistry) {
-                amountToBeStaked = 1;
-                // If metaverse registry is ESTATE, query the amount by calling getEstateSize
-            } else if (
-                landworksAsset.metaverseRegistry == decentralandEstateRegistry
-            ) {
-                IDecentralandEstateRegistry estateRegistry = IDecentralandEstateRegistry(
-                        landworksAsset.metaverseRegistry
-                    );
-                amountToBeStaked = estateRegistry.getEstateSize(
-                    landworksAsset.metaverseAssetId
-                );
-            }
+        // If the asset is LAND, amount is 1
+        uint256 amountToBeStaked = 1;
+        // If the asset is ESTATE, query the number of LAND's that it represents
+        if (landworksAsset.metaverseRegistry == decentralandEstateRegistry) {
+            IDecentralandEstateRegistry estateRegistry = IDecentralandEstateRegistry(
+                landworksAsset.metaverseRegistry
+            );
+            amountToBeStaked = estateRegistry.getEstateSize(
+                landworksAsset.metaverseAssetId
+            );
         }
         return amountToBeStaked;
     }
