@@ -1,7 +1,7 @@
 {
-  "name": "landworks-nft-staking",
+  "name": "landworks-yf-contracts",
   "version": "1.0.0",
-  "description": "LandWorks NFT Staking contracts",
+  "description": "LandWorks Yield Farming Contracts",
   "main": "index.js",
   "scripts": {
     "compile": "npx hardhat compile",
