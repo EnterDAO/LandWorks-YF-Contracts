@@ -3,6 +3,7 @@
 # LandWorks Yield Farming
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Test](https://github.com/EnterDAO/LandWorks-YF-Contracts/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/EnterDAO/LandWorks-YF-Contracts/actions/workflows/test.yml)
 
 </div>
 
