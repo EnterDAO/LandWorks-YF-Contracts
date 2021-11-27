@@ -47,7 +47,6 @@ describe("LandWorks NFT Staking Tests", () => {
 		const {
 			landWorksDecentralandStaking,
 			mockLandWorksNFT,
-			mockENTR,
 			estateRegistryMock,
 			landRegistryMock
 		} = await loadFixture(deployContract);
@@ -70,7 +69,6 @@ describe("LandWorks NFT Staking Tests", () => {
 		const {
 			landWorksDecentralandStaking,
 			mockLandWorksNFT,
-			mockENTR,
 			estateRegistryMock,
 			landRegistryMock
 		} = await loadFixture(deployContract);
@@ -102,7 +100,6 @@ describe("LandWorks NFT Staking Tests", () => {
 		const {
 			landWorksDecentralandStaking,
 			mockLandWorksNFT,
-			mockENTR,
 			estateRegistryMock,
 			landRegistryMock
 		} = await loadFixture(deployContract);
@@ -159,7 +156,6 @@ describe("LandWorks NFT Staking Tests", () => {
 		const {
 			landWorksDecentralandStaking,
 			mockLandWorksNFT,
-			mockENTR,
 			estateRegistryMock,
 			landRegistryMock
 		} = await loadFixture(deployContract);
