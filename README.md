@@ -8,7 +8,7 @@ Each lender in LandWorks receives an ERC-721 representation (known as LandWorks 
 
 # Contracts
 
-## LandWorksNFTStaking
+## LandWorksDecentralandStaking
 
 The main contract used for staking the LandWorks NFTs. A LandWorks NFT owner can stake and unstake his/hers NFTs at any time.
 

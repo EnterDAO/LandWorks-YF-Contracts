@@ -16,17 +16,18 @@ async function main() {
   // We get the contract to deploy
   console.log("Starting deploy...");
 
-  const LandWorksNFTStaking = await hre.ethers.getContractFactory("LandWorksNFTStaking");
-  const landWorksNFTStaking = await LandWorksNFTStaking.deploy(
+  const LandWorksDecentralandStaking = await hre.ethers.getContractFactory("LandWorksDecentralandStaking");
+  const landWorksDecentralandStaking = await LandWorksDecentralandStaking.deploy(
     process.env.STAKING_TOKEN,
     process.env.REWARDS_TOKEN,
     process.env.REWARD_RATE,
     process.env.DECENTRALAND_ESTATE_REGISTRY,
     process.env.DECENTRALAND_LAND_REGISTRY,
+    process.env.METAVERSE_ID,
   );
 
-  await landWorksNFTStaking.deployed();
-  console.log("LandWorks NFT Staking deployed to:", landWorksNFTStaking.address);
+  await landWorksDecentralandStaking.deployed();
+  console.log("LandWorks NFT Staking deployed to:", landWorksDecentralandStaking.address);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
