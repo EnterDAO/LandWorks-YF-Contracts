@@ -81,8 +81,6 @@ npx hardhat test
 
 #### Coverage
 
-TODO
-
 ```bash
 npx hardhat coverage
 ```
