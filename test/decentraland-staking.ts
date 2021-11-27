@@ -178,7 +178,9 @@ describe("LandWorks Decentraland Staking", () => {
 		it("Should emit events correctly on Withdraw", async () => {
 			await expect(staking.connect(nftHolder).withdraw([1, 2]))
 				.to.emit(mockLandWorksNft, "Transfer").withArgs(staking.address, nftHolder.address, 1)
+				.to.emit(mockLandWorksNft, "ConsumerChanged").withArgs(staking.address, ethers.constants.AddressZero, 1)
 				.to.emit(mockLandWorksNft, "Transfer").withArgs(staking.address, nftHolder.address, 2)
+				.to.emit(mockLandWorksNft, "ConsumerChanged").withArgs(staking.address, ethers.constants.AddressZero, 2)
 				.to.emit(staking, "StakeWithdraw").withArgs(nftHolder.address, 6, [1, 2]);
 		});
 

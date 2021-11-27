@@ -46,6 +46,7 @@ contract MockLandWorksNFT is ILandWorks, ERC721 {
         super._beforeTokenTransfer(_from, _to, _tokenId);
 
         _consumers[_tokenId] = address(0);
+        emit ConsumerChanged(_from, address(0), _tokenId);
     }
 
     function generateTestAssets(
