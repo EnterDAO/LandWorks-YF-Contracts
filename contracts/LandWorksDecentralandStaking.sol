@@ -12,6 +12,7 @@ contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard {
     IERC20 public rewardsToken;
     ILandWorks public stakingToken;
 
+    // amount of `rewardsToken` emitted per second and distributed as reward to all stakers
     uint256 public rewardRate;
     uint256 public lastUpdateTime;
     uint256 public rewardPerTokenStored;
