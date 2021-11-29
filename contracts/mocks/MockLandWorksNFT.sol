@@ -30,12 +30,21 @@ contract MockLandWorksNFT is ILandWorks, ERC721 {
     }
 
     function changeConsumer(address _consumer, uint256 _tokenId) external {
+        address owner = ownerOf(_tokenId);
         require(
-            ownerOf(_tokenId) == msg.sender,
+            owner == msg.sender,
             "Only token owner can set consumer"
         );
+        _changeConsumer(owner, _consumer, _tokenId);
+    }
+
+    /**
+     * @dev Changes the consumer
+     * Requirement: `tokenId` must exist
+     */
+    function _changeConsumer(address _owner, address _consumer, uint256 _tokenId) internal {
         _consumers[_tokenId] = _consumer;
-        emit ConsumerChanged(ownerOf(_tokenId), _consumer, _tokenId);
+        emit ConsumerChanged(_owner, _consumer, _tokenId);
     }
 
     function assetAt(uint256 _assetId) external view returns (Asset memory) {
@@ -45,8 +54,7 @@ contract MockLandWorksNFT is ILandWorks, ERC721 {
     function _beforeTokenTransfer(address _from, address _to, uint256 _tokenId) internal virtual override (ERC721) {
         super._beforeTokenTransfer(_from, _to, _tokenId);
 
-        _consumers[_tokenId] = address(0);
-        emit ConsumerChanged(_from, address(0), _tokenId);
+        _changeConsumer(_from, address(0), _tokenId);
     }
 
     function generateTestAssets(
