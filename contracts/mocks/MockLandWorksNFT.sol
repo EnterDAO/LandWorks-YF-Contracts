@@ -13,11 +13,16 @@ contract MockLandWorksNFT is ILandWorks, ERC721 {
     mapping(uint256 => address) private _consumers;
     mapping(uint256 => Asset) private _assets;
 
-    constructor() ERC721("MockLandWorksNFT", "MOCK-LANDWORKS") {}
+    address landRegistry;
+    address estateRegistry;
+
+    constructor(address _landRegistry, address _estateRegistry) ERC721("MockLandWorksNFT", "MOCK-LANDWORKS") {
+        landRegistry = _landRegistry;
+        estateRegistry = _estateRegistry;
+    }
 
     function mint(address _to, uint256 _tokenId) public {
         _safeMint(_to, _tokenId);
-        _consumers[_tokenId] = _to;
     }
 
     function consumerOf(uint256 _tokenId) external view returns (address) {
@@ -25,37 +30,63 @@ contract MockLandWorksNFT is ILandWorks, ERC721 {
     }
 
     function changeConsumer(address _consumer, uint256 _tokenId) external {
+        address owner = ownerOf(_tokenId);
         require(
-            ownerOf(_tokenId) == msg.sender,
+            owner == msg.sender,
             "Only token owner can set consumer"
         );
-        _consumers[_tokenId] = _consumer;
+        _changeConsumer(owner, _consumer, _tokenId);
+    }
 
-        emit ConsumerChanged(ownerOf(_tokenId), _consumer, _tokenId);
+    /**
+     * @dev Changes the consumer
+     * Requirement: `tokenId` must exist
+     */
+    function _changeConsumer(address _owner, address _consumer, uint256 _tokenId) internal {
+        _consumers[_tokenId] = _consumer;
+        emit ConsumerChanged(_owner, _consumer, _tokenId);
     }
 
     function assetAt(uint256 _assetId) external view returns (Asset memory) {
         return _assets[_assetId];
     }
 
+    function _beforeTokenTransfer(address _from, address _to, uint256 _tokenId) internal virtual override (ERC721) {
+        super._beforeTokenTransfer(_from, _to, _tokenId);
+
+        _changeConsumer(_from, address(0), _tokenId);
+    }
+
     function generateTestAssets(
         uint256 amount,
-        address receiver,
-        address metaverseLandRegistry,
-        address metaverseEstateRegistry
+        address receiver
     ) external {
         for (uint256 i = 0; i < amount; i++) {
             _total.increment();
             mint(receiver, _total.current());
             _assets[_total.current()].metaverseId = 1;
             if (i % 2 == 0) {
-                _assets[_total.current()]
-                    .metaverseRegistry = metaverseLandRegistry;
+                _assets[_total.current()].metaverseRegistry = landRegistry;
             } else {
-                _assets[_total.current()]
-                    .metaverseRegistry = metaverseEstateRegistry;
+                _assets[_total.current()].metaverseRegistry = estateRegistry;
             }
             _assets[_total.current()].metaverseAssetId = i * i;
         }
+    }
+
+    function generateWithInvalidMetaverseId(address receiver) external {
+        _total.increment();
+        mint(receiver, _total.current());
+        _assets[_total.current()].metaverseId = 9999;
+        _assets[_total.current()].metaverseRegistry = landRegistry;
+        _assets[_total.current()].metaverseAssetId = 1;
+    }
+
+    function generateWithInvalidRegistry(address receiver) external {
+        _total.increment();
+        mint(receiver, _total.current());
+        _assets[_total.current()].metaverseId = 1;
+        _assets[_total.current()].metaverseRegistry = msg.sender;
+        _assets[_total.current()].metaverseAssetId = 1;
     }
 }
