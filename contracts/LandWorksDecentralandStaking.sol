@@ -5,10 +5,11 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/ILandWorks.sol";
 import "./interfaces/IDecentralandEstateRegistry.sol";
 
-contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard {
+contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard, Ownable {
     IERC20 public rewardsToken;
     ILandWorks public stakingToken;
 
@@ -16,6 +17,9 @@ contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard {
     uint256 public rewardRate;
     uint256 public lastUpdateTime;
     uint256 public rewardPerTokenStored;
+
+    uint256 public periodFinish;
+    uint256 public rewardsDuration;
 
     mapping(address => uint256) public userRewardPerTokenPaid;
     mapping(address => uint256) public rewards;
@@ -46,17 +50,21 @@ contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard {
         uint256 amount
     );
 
+    event RewardsAdded(
+        uint256 reward
+    );
+
     constructor(
         address _stakingToken,
         address _rewardsToken,
-        uint256 _rewardRate,
+        uint256 _rewardsDuration,
         uint256 _metaverseId,
         address _landRegistry,
         address _estateRegistry
     ) {
         stakingToken = ILandWorks(_stakingToken);
         rewardsToken = IERC20(_rewardsToken);
-        rewardRate = _rewardRate;
+        rewardsDuration = _rewardsDuration;
 
         metaverseId = _metaverseId;
         landRegistry = _landRegistry;
@@ -135,7 +143,7 @@ contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard {
         }
         return
             rewardPerTokenStored +
-            (((block.timestamp - lastUpdateTime) * rewardRate * 1e18) / totalSupply);
+            (((lastTimeRewardApplicable() - lastUpdateTime) * rewardRate * 1e18) / totalSupply);
     }
 
     function earned(address account) public view returns (uint256) {
@@ -147,7 +155,7 @@ contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard {
 
     modifier updateReward(address account) {
         rewardPerTokenStored = rewardPerToken();
-        lastUpdateTime = block.timestamp;
+        lastUpdateTime = lastTimeRewardApplicable();
 
         rewards[account] = earned(account);
         userRewardPerTokenPaid[account] = rewardPerTokenStored;
@@ -170,5 +178,27 @@ contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard {
         rewardsToken.transfer(msg.sender, reward);
 
         emit RewardsClaim(msg.sender, reward);
+    }
+
+    function lastTimeRewardApplicable() public view returns (uint256) {
+        return block.timestamp < periodFinish ? block.timestamp : periodFinish;
+    }
+
+    /// @notice Calulates and sets the reward rate
+    /// @param reward The amount of the reward which will be distributed during the entire period
+    function notifyRewardAmount(uint256 reward) external onlyOwner updateReward(address(0)) {
+        rewardRate = reward / rewardsDuration;
+
+        // Ensure the provided reward amount is not more than the balance in the contract.
+        // This keeps the reward rate in the right range, preventing overflows due to
+        // very high values of rewardRate in the earned and rewardsPerToken functions;
+        // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
+        uint balance = rewardsToken.balanceOf(address(this));
+        require(rewardRate <= balance/rewardsDuration, "Initialize: Provided reward too high");
+
+        lastUpdateTime = block.timestamp;
+        periodFinish = block.timestamp + rewardsDuration;
+
+        emit RewardsAdded(reward);
     }
 }

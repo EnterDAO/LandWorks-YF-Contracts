@@ -1,7 +1,7 @@
 import {ethers} from "hardhat";
 import {expect} from 'chai';
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {Contract} from "ethers";
+import {Contract, BigNumber} from "ethers";
 
 describe("LandWorks Decentraland Staking", () => {
 
@@ -12,7 +12,9 @@ describe("LandWorks Decentraland Staking", () => {
 	let snapshotId: any;
 
 	const METAVERSE_ID = 1;
-	const REWARD_RATE = 100;
+	const REWARD_DURATION = 31536000; // 1 year in seconds
+	const REWARD = ethers.utils.parseEther("1000000") // 1000000 ENTR
+	const REWARD_RATE = REWARD.div(REWARD_DURATION);
 
 	before(async () => {
 		const signers = await ethers.getSigners();
@@ -37,11 +39,14 @@ describe("LandWorks Decentraland Staking", () => {
 		staking = await LandWorksDecentralandStaking.deploy(
 			mockLandWorksNft.address,
 			mockENTR.address,
-			REWARD_RATE,
+			REWARD_DURATION,
 			METAVERSE_ID,
 			landRegistryMock.address,
 			estateRegistryMock.address
 		);
+
+		await mockENTR.mint(staking.address, REWARD);
+		await staking.notifyRewardAmount(REWARD);
 	});
 
 	beforeEach(async function () {
@@ -55,10 +60,15 @@ describe("LandWorks Decentraland Staking", () => {
 	it("Should initialize properly with correct configuration", async () => {
 		expect(await staking.rewardsToken()).to.equal(mockENTR.address);
 		expect(await staking.stakingToken()).to.equal(mockLandWorksNft.address);
-		expect(await staking.rewardRate()).to.equal(100);
+		expect(await staking.rewardRate()).to.equal(REWARD_RATE);
 		expect(await staking.metaverseId()).to.equal(METAVERSE_ID);
 		expect(await staking.landRegistry()).to.equal(landRegistryMock.address);
 		expect(await staking.estateRegistry()).to.equal(estateRegistryMock.address);
+	});
+
+	it("Should revert if reward is too high", async () => {
+		const expectedRevertMessage = 'Initialize: Provided reward too high';
+		await expect(staking.notifyRewardAmount(REWARD.mul(2))).to.be.revertedWith(expectedRevertMessage);
 	});
 
 	describe("Staking", () => {
@@ -191,12 +201,7 @@ describe("LandWorks Decentraland Staking", () => {
 
 	describe('Rewards', async () => {
 
-		const THOUSAND = ethers.utils.parseEther("1000");
-
 		before(async () => {
-			// Send rewards to staking contract
-			await mockENTR.mint(staking.address, THOUSAND);
-
 			await mockLandWorksNft.generateTestAssets(10, nftHolder.address);
 			await mockLandWorksNft.generateTestAssets(10, anotherNftHolder.address);
 			await mockLandWorksNft.connect(nftHolder).setApprovalForAll(staking.address, true);
@@ -213,8 +218,8 @@ describe("LandWorks Decentraland Staking", () => {
 
 			// Accrues 100 more as reward
 			await staking.connect(nftHolder).getReward();
-			expect(await mockENTR.balanceOf(nftHolder.address)).to.equal(2 * REWARD_RATE);
-			expect(await mockENTR.balanceOf(staking.address)).to.equal(THOUSAND.sub(2 * REWARD_RATE));
+			expect(await mockENTR.balanceOf(nftHolder.address)).to.equal(REWARD_RATE.mul(2));
+			expect(await mockENTR.balanceOf(staking.address)).to.equal(REWARD.sub(REWARD_RATE.mul(2)));
 		})
 
 		it('Should accrue correct amount for balance > 1 per second', async () => {
@@ -226,8 +231,8 @@ describe("LandWorks Decentraland Staking", () => {
 			expect(earnedBefore + REWARD_RATE).to.equal(earnedAfter);
 
 			await staking.connect(nftHolder).getReward();
-			expect(await mockENTR.balanceOf(nftHolder.address)).to.equal(2 * REWARD_RATE);
-			expect(await mockENTR.balanceOf(staking.address)).to.equal(THOUSAND.sub(2 * REWARD_RATE));
+			expect(await mockENTR.balanceOf(nftHolder.address)).to.equal(REWARD_RATE.mul(2));
+			expect(await mockENTR.balanceOf(staking.address)).to.equal(REWARD.sub(REWARD_RATE.mul(2)));
 		})
 
 		it('Should accrue correct amount for multiple users per second', async () => {
@@ -256,19 +261,19 @@ describe("LandWorks Decentraland Staking", () => {
 			// nftHolder balances
 			expect(holder1EarnedT0).to.equal(0);
 			expect(holder1EarnedT1).to.equal(REWARD_RATE);
-			expect(holder1EarnedT2).to.equal(1.5 * REWARD_RATE);
+			expect(holder1EarnedT2).to.equal(REWARD_RATE.mul(3).div(2));
 			expect(holder1EarnedT3).to.equal(0);
-			expect(await mockENTR.balanceOf(nftHolder.address)).to.equal(2 * REWARD_RATE);
+			expect(await mockENTR.balanceOf(nftHolder.address)).to.equal(REWARD_RATE.mul(2));
 
 			// anotherNftHolder balances
 			expect(holder2EarnedT0).to.equal(0);
-			expect(holder2EarnedT1).to.equal(0.5 * REWARD_RATE);
+			expect(holder2EarnedT1).to.equal(REWARD_RATE.div(2));
 			expect(holder2EarnedT2).to.equal(REWARD_RATE);
 			expect(holder2EarnedT3).to.equal(0);
-			expect(await mockENTR.balanceOf(anotherNftHolder.address)).to.equal(1.5 * REWARD_RATE);
+			expect(await mockENTR.balanceOf(anotherNftHolder.address)).to.equal(REWARD_RATE.mul(3).div(2));
 
 			// Staking contract balance
-			expect(await mockENTR.balanceOf(staking.address)).to.equal(THOUSAND.sub(3.5 * REWARD_RATE));
+			expect(await mockENTR.balanceOf(staking.address)).to.equal(REWARD.sub(REWARD_RATE.mul(7).div(2)));
 		})
 
 		it('Should accrue correct amount for multiple users proportionally to their balance per second', async () => {
@@ -300,19 +305,19 @@ describe("LandWorks Decentraland Staking", () => {
 
 			expect(holder1EarnedT0).to.equal(0);
 			expect(holder1EarnedT1).to.equal(REWARD_RATE);
-			expect(holder1EarnedT2).to.equal(REWARD_RATE + REWARD_RATE / 5);
+			expect(holder1EarnedT2).to.equal(REWARD_RATE.add(REWARD_RATE.div(5)));
 			expect(holder1EarnedT3).to.equal(0);
-			expect(holder1EarnedT4).to.equal(REWARD_RATE / 5);
-			expect(await mockENTR.balanceOf(nftHolder.address)).to.equal(REWARD_RATE * (7 / 5));
+			expect(holder1EarnedT4).to.equal(REWARD_RATE .div(5));
+			expect(await mockENTR.balanceOf(nftHolder.address)).to.equal(REWARD_RATE.mul(7).div(5));
 
 			expect(holder2EarnedT0).to.equal(0);
-			expect(holder2EarnedT1).to.equal(REWARD_RATE * (4 / 5));
-			expect(holder2EarnedT2).to.equal(REWARD_RATE * (8 / 5));
+			expect(holder2EarnedT1).to.equal(REWARD_RATE.mul(4).div(5));
+			expect(holder2EarnedT2).to.equal(REWARD_RATE.mul(8).div(5));
 			expect(holder2EarnedT3).to.equal(0);
-			expect(await mockENTR.balanceOf(anotherNftHolder.address)).to.equal(REWARD_RATE * (12 / 5));
+			expect(await mockENTR.balanceOf(anotherNftHolder.address)).to.equal(REWARD_RATE.mul(12).div(5));
 
 			// Staking contract balance
-			expect(await mockENTR.balanceOf(staking.address)).to.equal(THOUSAND.sub(REWARD_RATE * (19 / 5)));
+			expect(await mockENTR.balanceOf(staking.address)).to.equal(REWARD.sub(REWARD_RATE.mul(19).div(5)));
 		})
 
 		it('Should emit correct events on Claim', async () => {
