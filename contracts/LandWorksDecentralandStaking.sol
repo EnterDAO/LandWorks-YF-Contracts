@@ -18,7 +18,7 @@ contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard, Ownable,
     ILandWorks public stakingToken;
     uint256 public periodFinish = 0;
     uint256 public rewardRate = 0;
-    uint256 public rewardsDuration = 31556926; // 1 year
+    uint256 public rewardsDuration;
     uint256 public lastUpdateTime;
     uint256 public rewardPerTokenStored;
 
@@ -39,12 +39,14 @@ contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard, Ownable,
     constructor(
         address _stakingToken,
         address _rewardsToken,
+        uint256 _rewardsDuration,
         uint256 _metaverseId,
         address _landRegistry,
         address _estateRegistry
     ) {
         stakingToken = ILandWorks(_stakingToken);
         rewardsToken = IERC20(_rewardsToken);
+        rewardsDuration = _rewardsDuration;
 
         metaverseId = _metaverseId;
         landRegistry = _landRegistry;
@@ -122,7 +124,7 @@ contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard, Ownable,
 
     /// @notice Withdraws staked user's LandWorks NFTs
     /// @param tokenIds The tokenIds of the LandWorks NFT which will be withdrawn
-    function withdraw(uint256[] memory tokenIds) external nonReentrant updateReward(msg.sender) {
+    function withdraw(uint256[] memory tokenIds) public nonReentrant updateReward(msg.sender) {
         require(tokenIds.length != 0, "Staking: No tokenIds provided");
 
         uint256 amount;
@@ -144,13 +146,18 @@ contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard, Ownable,
         emit Withdrawn(msg.sender, amount, tokenIds);
     }
 
-    function getReward() external nonReentrant updateReward(msg.sender) {
+    function getReward() public nonReentrant updateReward(msg.sender) {
         uint256 reward = rewards[msg.sender];
         if (reward > 0) {
             rewards[msg.sender] = 0;
             rewardsToken.transfer(msg.sender, reward);
             emit RewardPaid(msg.sender, reward);
         }
+    }
+
+    function exit(uint256[] memory tokenIds) external {
+        withdraw(tokenIds);
+        getReward();
     }
 
     function _stake(uint256 _amount) internal {

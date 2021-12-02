@@ -1,8 +1,7 @@
-import {ethers, network} from "hardhat";
+import {ethers} from "hardhat";
 import {expect} from 'chai';
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {Contract} from "ethers";
-
 describe("LandWorks Decentraland Staking", () => {
 
 	let owner: SignerWithAddress, nftHolder: SignerWithAddress, nonNftHolder: SignerWithAddress,
@@ -39,6 +38,7 @@ describe("LandWorks Decentraland Staking", () => {
 		staking = await LandWorksDecentralandStaking.deploy(
 			mockLandWorksNft.address,
 			mockENTR.address,
+			REWARD_DURATION,
 			METAVERSE_ID,
 			landRegistryMock.address,
 			estateRegistryMock.address
@@ -57,6 +57,7 @@ describe("LandWorks Decentraland Staking", () => {
 	it("Should initialize properly with correct configuration", async () => {
 		expect(await staking.rewardsToken()).to.equal(mockENTR.address);
 		expect(await staking.stakingToken()).to.equal(mockLandWorksNft.address);
+		expect(await staking.rewardsDuration()).to.equal(REWARD_DURATION);
 		expect(await staking.metaverseId()).to.equal(METAVERSE_ID);
 		expect(await staking.landRegistry()).to.equal(landRegistryMock.address);
 		expect(await staking.estateRegistry()).to.equal(estateRegistryMock.address);
@@ -450,5 +451,44 @@ describe("LandWorks Decentraland Staking", () => {
 					.to.emit(staking, "RewardPaid").withArgs(nftHolder.address, REWARD_RATE)
 			})
 		});
+
+		it('Should be able to exit', async () => {
+			await mockLandWorksNft.generateTestAssets(2, nftHolder.address);
+			await mockLandWorksNft.connect(nftHolder).setApprovalForAll(staking.address, true);
+			await staking.connect(nftHolder).stake([1, 2]);
+
+			await staking.connect(nftHolder).exit([1,2]);
+			const balanceOfContractAfter = await mockLandWorksNft.balanceOf(staking.address);
+			expect(balanceOfContractAfter.toNumber()).to.equal(0);
+
+			const balanceOfStaker = await mockLandWorksNft.balanceOf(nftHolder.address);
+			expect(balanceOfStaker.toNumber()).to.equal(2);
+			expect(await mockLandWorksNft.ownerOf(1)).to.equal(nftHolder.address);
+			expect(await mockLandWorksNft.ownerOf(2)).to.equal(nftHolder.address);
+			expect(await staking.totalSupply()).to.equal(0);
+			expect(await staking.balances(nftHolder.address)).to.equal(0);
+			expect(await staking.stakedAssets(1)).to.equal(ethers.constants.AddressZero);
+			expect(await staking.stakedAssets(2)).to.equal(ethers.constants.AddressZero);
+			expect(await mockLandWorksNft.consumerOf(1)).to.equal(ethers.constants.AddressZero);
+			expect(await mockLandWorksNft.consumerOf(2)).to.equal(ethers.constants.AddressZero);
+
+			expect(await mockENTR.balanceOf(staking.address)).to.equal(REWARD.sub(REWARD_RATE));
+			expect(await mockENTR.balanceOf(nftHolder.address)).to.equal(REWARD_RATE);
+		})
+
+		it('Should emit correct events when exit', async () => {
+			await mockLandWorksNft.generateTestAssets(2, nftHolder.address);
+			await mockLandWorksNft.connect(nftHolder).setApprovalForAll(staking.address, true);
+			await staking.connect(nftHolder).stake([1, 2]);
+
+			await expect(staking.connect(nftHolder).exit([1,2]))
+				.to.emit(mockLandWorksNft, "Transfer").withArgs(staking.address, nftHolder.address, 1)
+				.to.emit(mockLandWorksNft, "ConsumerChanged").withArgs(staking.address, ethers.constants.AddressZero, 1)
+				.to.emit(mockLandWorksNft, "Transfer").withArgs(staking.address, nftHolder.address, 2)
+				.to.emit(mockLandWorksNft, "ConsumerChanged").withArgs(staking.address, ethers.constants.AddressZero, 2)
+				.to.emit(staking, "Withdrawn").withArgs(nftHolder.address, 6, [1, 2])
+				.to.emit(mockENTR, "Transfer").withArgs(staking.address, nftHolder.address, REWARD_RATE)
+				.to.emit(staking, "RewardPaid").withArgs(nftHolder.address, REWARD_RATE)
+		})
 	})
 });
