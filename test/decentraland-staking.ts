@@ -39,12 +39,11 @@ describe("LandWorks Decentraland Staking", () => {
 		staking = await LandWorksDecentralandStaking.deploy(
 			mockLandWorksNft.address,
 			mockENTR.address,
-			REWARD_DURATION,
 			METAVERSE_ID,
 			landRegistryMock.address,
 			estateRegistryMock.address
 		);
-
+		await staking.setRewardsDuration(REWARD_DURATION);
 		await mockENTR.mint(staking.address, REWARD);
 		await staking.notifyRewardAmount(REWARD);
 	});
@@ -67,8 +66,8 @@ describe("LandWorks Decentraland Staking", () => {
 	});
 
 	it("Should revert if reward is too high", async () => {
-		const expectedRevertMessage = 'Initialize: Provided reward too high';
-		await expect(staking.notifyRewardAmount(REWARD.mul(2))).to.be.revertedWith(expectedRevertMessage);
+		const expectedRevertMessage = 'Staking: Provided reward too high';
+		await expect(staking.notifyRewardAmount(REWARD.add(1))).to.be.revertedWith(expectedRevertMessage);
 	});
 
 	describe("Staking", () => {
@@ -117,7 +116,7 @@ describe("LandWorks Decentraland Staking", () => {
 				.to.emit(mockLandWorksNft, "ConsumerChanged").withArgs(staking.address, nftHolder.address, 1)
 				.to.emit(mockLandWorksNft, "Transfer").withArgs(nftHolder.address, staking.address, 2)
 				.to.emit(mockLandWorksNft, "ConsumerChanged").withArgs(staking.address, nftHolder.address, 2)
-				.to.emit(staking, "Stake").withArgs(nftHolder.address, 6, [1, 2])
+				.to.emit(staking, "Staked").withArgs(nftHolder.address, 6, [1, 2])
 		});
 
 		it("Should not allow staking of unsupported metaverse Id", async () => {
@@ -190,7 +189,7 @@ describe("LandWorks Decentraland Staking", () => {
 				.to.emit(mockLandWorksNft, "ConsumerChanged").withArgs(staking.address, ethers.constants.AddressZero, 1)
 				.to.emit(mockLandWorksNft, "Transfer").withArgs(staking.address, nftHolder.address, 2)
 				.to.emit(mockLandWorksNft, "ConsumerChanged").withArgs(staking.address, ethers.constants.AddressZero, 2)
-				.to.emit(staking, "StakeWithdraw").withArgs(nftHolder.address, 6, [1, 2]);
+				.to.emit(staking, "Withdrawn").withArgs(nftHolder.address, 6, [1, 2]);
 		});
 
 		it("Should not be able to withdraw LandWorks NFTs staked by other person", async () => {
@@ -325,7 +324,7 @@ describe("LandWorks Decentraland Staking", () => {
 
 			await expect(staking.connect(nftHolder).getReward())
 				.to.emit(mockENTR, "Transfer").withArgs(staking.address, nftHolder.address, REWARD_RATE)
-				.to.emit(staking, "RewardsClaim").withArgs(nftHolder.address, REWARD_RATE)
+				.to.emit(staking, "RewardPaid").withArgs(nftHolder.address, REWARD_RATE)
 		})
 
 	});

@@ -49,7 +49,7 @@ npx hardhat compile
 
 **Prerequisite**
 
-Before running the deploy `npx hardhat` script, you need to create and populate the `config.ts` file. You can use
+Before running the deployment `npx hardhat` script, you need to create and populate the `config.ts` file. You can use
 the `config.sample.ts` file and populate the following variables:
 
 ```markdown
@@ -65,7 +65,7 @@ npx hardhat deploy-decentraland \
     --network <network name> \
     --staking-token <address of the staking token> \
     --rewards-token <address of the rewards token> \
-    --reward-rate <reward rate per token staked> \
+    --duration <duration of farming in seconds> \
     --metaverse-id <ID of Decentraland as mapped in LW Contracts> \
     --land-registry <address of LAND registry> \
     --estate-registry <address of ESTATE registry>
