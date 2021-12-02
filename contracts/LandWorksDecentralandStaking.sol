@@ -3,17 +3,24 @@ pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/ILandWorks.sol";
 import "./interfaces/IDecentralandEstateRegistry.sol";
 
-contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard {
+contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard, Ownable, Pausable {
+    using SafeERC20 for IERC20;
+
+    /* ========== STATE VARIABLES ========== */
+
     IERC20 public rewardsToken;
     ILandWorks public stakingToken;
-
-    // amount of `rewardsToken` emitted per second and distributed as reward to all stakers
-    uint256 public rewardRate;
+    uint256 public periodFinish = 0;
+    uint256 public rewardRate = 0;
+    uint256 public rewardsDuration;
     uint256 public lastUpdateTime;
     uint256 public rewardPerTokenStored;
 
@@ -29,88 +36,54 @@ contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard {
     address public landRegistry;
     IDecentralandEstateRegistry public estateRegistry;
 
-    event Stake(
-        address indexed staker,
-        uint256 amount,
-        uint256[] tokenIds
-    );
-
-    event StakeWithdraw(
-        address indexed staker,
-        uint256 amount,
-        uint256[] tokenIds
-    );
-
-    event RewardsClaim(
-        address indexed staker,
-        uint256 amount
-    );
+    /* ========== CONSTRUCTOR ========== */
 
     constructor(
         address _stakingToken,
         address _rewardsToken,
-        uint256 _rewardRate,
+        uint256 _rewardsDuration,
         uint256 _metaverseId,
         address _landRegistry,
         address _estateRegistry
     ) {
         stakingToken = ILandWorks(_stakingToken);
         rewardsToken = IERC20(_rewardsToken);
-        rewardRate = _rewardRate;
+        rewardsDuration = _rewardsDuration;
 
         metaverseId = _metaverseId;
         landRegistry = _landRegistry;
         estateRegistry = IDecentralandEstateRegistry(_estateRegistry);
     }
 
-    /// @notice Stakes user's LandWorks NFTs
-    /// @param tokenIds The tokenIds of the LandWorks NFTs which will be staked
-    function stake(uint256[] memory tokenIds) external nonReentrant {
-        uint256 amount;
-        for (uint256 i = 0; i < tokenIds.length; i += 1) {
-            // Transfer user's LandWorks NFTs to the staking contract
-            stakingToken.transferFrom(msg.sender, address(this), tokenIds[i]);
-            // Change the consumer of the LandWorks NFT to be the person who staked it
-            stakingToken.changeConsumer(msg.sender, tokenIds[i]);
-            // Increment the amount which will be staked
-            amount += getAmount(tokenIds[i]);
-            // Save who is the owner of the token
-            stakedAssets[tokenIds[i]] = msg.sender;
-        }
-        stake(amount);
+    /* ========== VIEWS ========== */
 
-        emit Stake(msg.sender, amount, tokenIds);
+    function lastTimeRewardApplicable() public view returns (uint256) {
+        return block.timestamp < periodFinish ? block.timestamp : periodFinish;
     }
 
-    /// @notice Withdraws staked user's LandWorks NFTs
-    /// @param tokenIds The tokenIds of the LandWorks NFT which will be withdrawn
-    function withdraw(uint256[] memory tokenIds) external nonReentrant {
-        uint256 amount;
-        for (uint256 i = 0; i < tokenIds.length; i += 1) {
-            // Check if the user who withdraws is the owner
-            require(
-                stakedAssets[tokenIds[i]] == msg.sender,
-                "Staking: Not owner of the token"
-            );
-            // Transfer LandWorks NFTs back to the owner
-            stakingToken.transferFrom(address(this), msg.sender, tokenIds[i]);
-            // Increment the amount which will be withdrawn
-            amount += getAmount(tokenIds[i]);
-            // Cleanup _stakedAssets for the current tokenId
-            stakedAssets[tokenIds[i]] = address(0);
+    function rewardPerToken() public view returns (uint256) {
+        if (totalSupply == 0) {
+            return rewardPerTokenStored;
         }
-        withdraw(amount);
+        return
+            rewardPerTokenStored +
+                (((lastTimeRewardApplicable() - lastUpdateTime) * rewardRate * 1e18) / totalSupply);
+    }
 
-        emit StakeWithdraw(msg.sender, amount, tokenIds);
+    function earned(address account) public view returns (uint256) {
+        return
+            ((balances[account] *
+                (rewardPerToken() - userRewardPerTokenPaid[account])) / 1e18) +
+                    rewards[account];
+    }
+
+    function getRewardForDuration() external view returns (uint256) {
+        return rewardRate * rewardsDuration;
     }
 
     /// @notice Gets the represented amount to be staked, based on the LandWorks NFT
     /// @param tokenId The tokenId of the LandWorks NFT
-    function getAmount(uint256 tokenId)
-        internal
-        view
-        returns (uint256)
-    {
+    function getAmount(uint256 tokenId) public view returns (uint256) {
         // Get the asset struct from Landworks
         ILandWorks.Asset memory landworksAsset = stakingToken.assetAt(tokenId);
         require(landworksAsset.metaverseId == metaverseId, "Staking: Invalid metaverseId");
@@ -129,46 +102,135 @@ contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard {
         return amountToBeStaked;
     }
 
-    function rewardPerToken() public view returns (uint256) {
-        if (totalSupply == 0) {
-            return 0;
+    /* ========== MUTATIVE FUNCTIONS ========== */
+
+    /// @notice Stakes user's LandWorks NFTs
+    /// @param tokenIds The tokenIds of the LandWorks NFTs which will be staked
+    function stake(uint256[] memory tokenIds) external nonReentrant whenNotPaused updateReward(msg.sender) {
+        require(tokenIds.length != 0, "Staking: No tokenIds provided");
+
+        uint256 amount;
+        for (uint256 i = 0; i < tokenIds.length; i += 1) {
+            // Transfer user's LandWorks NFTs to the staking contract
+            stakingToken.safeTransferFrom(msg.sender, address(this), tokenIds[i]);
+            // Change the consumer of the LandWorks NFT to be the person who staked it
+            stakingToken.changeConsumer(msg.sender, tokenIds[i]);
+            // Increment the amount which will be staked
+            amount += getAmount(tokenIds[i]);
+            // Save who is the owner of the token
+            stakedAssets[tokenIds[i]] = msg.sender;
         }
-        return
-            rewardPerTokenStored +
-            (((block.timestamp - lastUpdateTime) * rewardRate * 1e18) / totalSupply);
+        _stake(amount);
+        emit Staked(msg.sender, amount, tokenIds);
     }
 
-    function earned(address account) public view returns (uint256) {
-        return
-            ((balances[account] *
-                (rewardPerToken() - userRewardPerTokenPaid[account])) / 1e18) +
-            rewards[account];
+    /// @notice Withdraws staked user's LandWorks NFTs
+    /// @param tokenIds The tokenIds of the LandWorks NFT which will be withdrawn
+    function withdraw(uint256[] memory tokenIds) public nonReentrant updateReward(msg.sender) {
+        require(tokenIds.length != 0, "Staking: No tokenIds provided");
+
+        uint256 amount;
+        for (uint256 i = 0; i < tokenIds.length; i += 1) {
+            // Check if the user who withdraws is the owner
+            require(
+                stakedAssets[tokenIds[i]] == msg.sender,
+                "Staking: Not owner of the token"
+            );
+            // Transfer LandWorks NFTs back to the owner
+            stakingToken.safeTransferFrom(address(this), msg.sender, tokenIds[i]);
+            // Increment the amount which will be withdrawn
+            amount += getAmount(tokenIds[i]);
+            // Cleanup stakedAssets for the current tokenId
+            stakedAssets[tokenIds[i]] = address(0);
+        }
+        _withdraw(amount);
+
+        emit Withdrawn(msg.sender, amount, tokenIds);
     }
 
-    modifier updateReward(address account) {
-        rewardPerTokenStored = rewardPerToken();
-        lastUpdateTime = block.timestamp;
-
-        rewards[account] = earned(account);
-        userRewardPerTokenPaid[account] = rewardPerTokenStored;
-        _;
+    function getReward() public nonReentrant updateReward(msg.sender) {
+        uint256 reward = rewards[msg.sender];
+        if (reward > 0) {
+            rewards[msg.sender] = 0;
+            rewardsToken.safeTransfer(msg.sender, reward);
+            emit RewardPaid(msg.sender, reward);
+        }
     }
 
-    function stake(uint256 _amount) internal updateReward(msg.sender) {
+    function exit(uint256[] memory tokenIds) external {
+        withdraw(tokenIds);
+        getReward();
+    }
+
+    function _stake(uint256 _amount) internal {
         totalSupply += _amount;
         balances[msg.sender] += _amount;
     }
 
-    function withdraw(uint256 _amount) internal updateReward(msg.sender) {
+    function _withdraw(uint256 _amount) internal {
         totalSupply -= _amount;
         balances[msg.sender] -= _amount;
     }
 
-    function getReward() external updateReward(msg.sender) {
-        uint256 reward = rewards[msg.sender];
-        rewards[msg.sender] = 0;
-        rewardsToken.transfer(msg.sender, reward);
+    /* ========== RESTRICTED FUNCTIONS ========== */
 
-        emit RewardsClaim(msg.sender, reward);
+    /// @notice Calculates and sets the reward rate
+    /// @param reward The amount of the reward which will be distributed during the entire period
+    function notifyRewardAmount(uint256 reward) external onlyOwner updateReward(address(0)) {
+        if (block.timestamp >= periodFinish) {
+            rewardRate = reward / rewardsDuration;
+        } else {
+            uint256 remaining = periodFinish - block.timestamp;
+            uint256 leftover = remaining * rewardRate;
+            rewardRate = (reward + leftover) / rewardsDuration;
+        }
+
+        // Ensure the provided reward amount is not more than the balance in the contract.
+        // This keeps the reward rate in the right range, preventing overflows due to
+        // very high values of rewardRate in the earned and rewardsPerToken functions;
+        // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
+        uint balance = rewardsToken.balanceOf(address(this));
+        require(rewardRate <= balance / rewardsDuration, "Staking: Provided reward too high");
+
+        lastUpdateTime = block.timestamp;
+        periodFinish = block.timestamp + rewardsDuration;
+        emit RewardAdded(reward);
     }
+
+    function setRewardsDuration(uint256 _rewardsDuration) external onlyOwner {
+        require(
+            block.timestamp > periodFinish,
+            "Staking: Previous rewards period must be complete before changing the duration for the new period"
+        );
+        rewardsDuration = _rewardsDuration;
+        emit RewardsDurationUpdated(rewardsDuration);
+    }
+
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
+    /* ========== MODIFIERS ========== */
+
+    modifier updateReward(address account) {
+        rewardPerTokenStored = rewardPerToken();
+        lastUpdateTime = lastTimeRewardApplicable();
+        if (account != address(0)) {
+            rewards[account] = earned(account);
+            userRewardPerTokenPaid[account] = rewardPerTokenStored;
+        }
+        _;
+    }
+
+    /* ========== EVENTS ========== */
+
+    event RewardAdded(uint256 reward);
+    event Staked(address indexed user, uint256 amount, uint256[] tokenIds);
+    event Withdrawn(address indexed user, uint256 amount, uint256[] tokenIds);
+    event RewardPaid(address indexed user, uint256 reward);
+    event RewardsDurationUpdated(uint256 newDuration);
 }

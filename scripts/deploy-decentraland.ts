@@ -3,7 +3,7 @@ import hardhat, {ethers} from 'hardhat';
 async function deployDecentraland(
 	stakingToken: string,
 	rewardsToken: string,
-	rewardRate: number,
+	duration: string,
 	metaverseId: number,
 	landRegistry: string,
 	estateRegistry: string
@@ -15,7 +15,7 @@ async function deployDecentraland(
 	const lwDecentralandStaking = await LWDecentralandStaking.deploy(
 		stakingToken,
 		rewardsToken,
-		rewardRate,
+		duration,
 		metaverseId,
 		landRegistry,
 		estateRegistry
@@ -29,7 +29,7 @@ async function deployDecentraland(
 	console.log('Verifying LandWorks Decentraland YF on Etherscan...');
 	await hardhat.run('verify:verify', {
 		address: lwDecentralandStaking.address,
-		constructorArguments: [stakingToken, rewardsToken, rewardRate, estateRegistry, landRegistry, metaverseId]
+		constructorArguments: [stakingToken, rewardsToken, duration, metaverseId, estateRegistry, landRegistry]
 	});
 }
 

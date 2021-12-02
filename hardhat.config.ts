@@ -10,7 +10,7 @@ import * as config from './config';
 task('deploy-decentraland', 'Deploys the LandWorks Decentraland YF Contract')
 	.addParam('stakingToken', 'The address of the staking token')
 	.addParam('rewardsToken', 'The address of the rewards token')
-	.addParam('rewardRate', 'The reward rate per token staked')
+	.addParam('duration', 'The duration of the farming in seconds')
 	.addParam('metaverseId', 'The ID of the Decentraland Metaverse as mapped in LandWorks')
 	.addParam('landRegistry', 'The address of the LAND Registry')
 	.addParam('estateRegistry', 'The address of the ESTATE Registry')
@@ -19,7 +19,7 @@ task('deploy-decentraland', 'Deploys the LandWorks Decentraland YF Contract')
 		await deployLandWorksYF(
 			args.stakingToken,
 			args.rewardsToken,
-			args.rewardRate,
+			args.duration,
 			args.metaverseId,
 			args.landRegistry,
 			args.estateRegistry
@@ -28,15 +28,14 @@ task('deploy-decentraland', 'Deploys the LandWorks Decentraland YF Contract')
 
 module.exports = {
 	solidity: {
-		compilers: [
-			{
-				version: "0.8.9",
-			},
-		],
+		version: '0.8.9',
 		settings: {
 			optimizer: {
 				enabled: true,
-				runs: 200,
+				runs: 9999,
+				details: {
+					yul: false
+				}
 			},
 		},
 	},
@@ -55,6 +54,6 @@ module.exports = {
 		flat: true,
 	},
 	gasReporter: {
-		enabled: !!(process.env.REPORT_GAS),
+		enabled: !!(process.env.REPORT_GAS)
 	},
 };
