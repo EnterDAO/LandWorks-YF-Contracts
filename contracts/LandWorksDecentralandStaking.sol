@@ -3,6 +3,7 @@ pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
@@ -11,6 +12,7 @@ import "./interfaces/ILandWorks.sol";
 import "./interfaces/IDecentralandEstateRegistry.sol";
 
 contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard, Ownable, Pausable {
+    using SafeERC20 for IERC20;
 
     /* ========== STATE VARIABLES ========== */
 
@@ -150,7 +152,7 @@ contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard, Ownable,
         uint256 reward = rewards[msg.sender];
         if (reward > 0) {
             rewards[msg.sender] = 0;
-            rewardsToken.transfer(msg.sender, reward);
+            rewardsToken.safeTransfer(msg.sender, reward);
             emit RewardPaid(msg.sender, reward);
         }
     }
