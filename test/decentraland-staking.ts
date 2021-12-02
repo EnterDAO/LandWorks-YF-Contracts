@@ -61,6 +61,7 @@ describe("LandWorks Decentraland Staking", () => {
 		expect(await staking.metaverseId()).to.equal(METAVERSE_ID);
 		expect(await staking.landRegistry()).to.equal(landRegistryMock.address);
 		expect(await staking.estateRegistry()).to.equal(estateRegistryMock.address);
+		expect(await staking.getRewardForDuration()).to.equal(0);
 	});
 
 	describe('Owner', () => {
@@ -103,24 +104,24 @@ describe("LandWorks Decentraland Staking", () => {
 				.to.be.revertedWith(expectedRevertMessage);
 		});
 
-	})
+	});
 
 	it('Should update rewards duration accordingly', async () => {
 		await staking.setRewardsDuration(REWARD_DURATION);
 		expect(await staking.rewardsDuration()).to.equal(REWARD_DURATION);
-	})
+	});
 
 	it('Should emit event on update rewards duration', async () => {
 		await expect(staking.setRewardsDuration(REWARD_DURATION))
 			.to.emit(staking, "RewardsDurationUpdated").withArgs(REWARD_DURATION);
-	})
+	});
 
 	it('Should not update rewards duration if previous reward period as not finished', async () => {
 		const expectedRevertMessage = 'Staking: Previous rewards period must be complete before changing the' +
 			' duration for the new period';
 		await staking.notifyRewardAmount(REWARD);
 		await expect(staking.setRewardsDuration(REWARD_DURATION + 1)).to.revertedWith(expectedRevertMessage);
-	})
+	});
 
 	it('Should notifyRewardsAmount accordingly when period finished', async () => {
 		await staking.setRewardsDuration(10);
@@ -131,6 +132,7 @@ describe("LandWorks Decentraland Staking", () => {
 		expect(await staking.rewardRate()).to.equal(ethers.utils.parseEther("1").div(10));
 		expect(await staking.lastUpdateTime()).to.equal(block.timestamp);
 		expect(await staking.periodFinish()).to.equal(block.timestamp + 10);
+		expect(await staking.getRewardForDuration()).to.equal(ethers.utils.parseEther("1"));
 	});
 
 	it('Should notifyRewardsAmount accordingly when period has not finished', async () => {
@@ -139,6 +141,7 @@ describe("LandWorks Decentraland Staking", () => {
 		await staking.notifyRewardAmount(ONE_ENTR);
 		const firstExpectedRewardRate = ONE_ENTR.div(10);
 		expect(await staking.rewardRate()).to.equal(firstExpectedRewardRate);
+		expect(await staking.getRewardForDuration()).to.equal(ONE_ENTR);
 
 		const tx = await staking.notifyRewardAmount(ONE_ENTR);
 		await tx.wait();
@@ -155,11 +158,15 @@ describe("LandWorks Decentraland Staking", () => {
 		before(async () => {
 			await staking.setRewardsDuration(REWARD_DURATION);
 			await staking.notifyRewardAmount(REWARD);
-		})
+		});
 
 		it('Should set reward rate properly', async () => {
 			expect(await staking.rewardRate()).to.equal(REWARD_RATE);
-		})
+		});
+
+		it('Should set reward for duration properly', async () => {
+			expect(await staking.getRewardForDuration()).to.equal(REWARD_RATE.mul(REWARD_DURATION));
+		});
 
 		it("Should revert if reward is too high", async () => {
 			const expectedRevertMessage = 'Staking: Provided reward too high';
@@ -201,7 +208,7 @@ describe("LandWorks Decentraland Staking", () => {
 				expect(await mockLandWorksNft.consumerOf(1)).to.equal(nftHolder.address);
 				expect(await mockLandWorksNft.consumerOf(2)).to.equal(nftHolder.address);
 				expect(await mockLandWorksNft.consumerOf(3)).to.equal(nftHolder.address);
-			})
+			});
 
 			it("Should emit events correctly", async () => {
 				await mockLandWorksNft.generateTestAssets(2, nftHolder.address);
@@ -253,7 +260,7 @@ describe("LandWorks Decentraland Staking", () => {
 				await staking.pause();
 
 				await expect(staking.connect(nftHolder).stake([1])).to.be.revertedWith(expectedRevertMessage);
-			})
+			});
 
 		});
 
@@ -294,7 +301,7 @@ describe("LandWorks Decentraland Staking", () => {
 			it('Should withdraw when paused', async () => {
 				await staking.pause();
 				await expect(staking.connect(nftHolder).withdraw([1, 2])).to.not.be.reverted;
-			})
+			});
 
 			it("Should emit events correctly on Withdraw", async () => {
 				await expect(staking.connect(nftHolder).withdraw([1, 2]))
@@ -343,7 +350,7 @@ describe("LandWorks Decentraland Staking", () => {
 				await staking.connect(nftHolder).getReward();
 				expect(await mockENTR.balanceOf(nftHolder.address)).to.equal(REWARD_RATE.mul(2));
 				expect(await mockENTR.balanceOf(staking.address)).to.equal(REWARD.sub(REWARD_RATE.mul(2)));
-			})
+			});
 
 			it('Should accrue correct amount for balance > 1 per second', async () => {
 				await staking.connect(nftHolder).stake([1, 2, 3, 4, 5, 6, 7, 8, 9]);
@@ -356,7 +363,7 @@ describe("LandWorks Decentraland Staking", () => {
 				await staking.connect(nftHolder).getReward();
 				expect(await mockENTR.balanceOf(nftHolder.address)).to.equal(REWARD_RATE.mul(2));
 				expect(await mockENTR.balanceOf(staking.address)).to.equal(REWARD.sub(REWARD_RATE.mul(2)));
-			})
+			});
 
 			it('Should accrue correct amount for multiple users per second', async () => {
 				await staking.connect(nftHolder).stake([1]);
@@ -397,7 +404,7 @@ describe("LandWorks Decentraland Staking", () => {
 
 				// Staking contract balance
 				expect(await mockENTR.balanceOf(staking.address)).to.equal(REWARD.sub(REWARD_RATE.mul(7).div(2)));
-			})
+			});
 
 			it('Should accrue correct amount for multiple users proportionally to their balance per second', async () => {
 				// Balance for nftHolder is 1
@@ -441,7 +448,7 @@ describe("LandWorks Decentraland Staking", () => {
 
 				// Staking contract balance
 				expect(await mockENTR.balanceOf(staking.address)).to.equal(REWARD.sub(REWARD_RATE.mul(19).div(5)));
-			})
+			});
 
 			it('Should emit correct events on Claim', async () => {
 				await staking.connect(nftHolder).stake([1]);
@@ -449,7 +456,7 @@ describe("LandWorks Decentraland Staking", () => {
 				await expect(staking.connect(nftHolder).getReward())
 					.to.emit(mockENTR, "Transfer").withArgs(staking.address, nftHolder.address, REWARD_RATE)
 					.to.emit(staking, "RewardPaid").withArgs(nftHolder.address, REWARD_RATE)
-			})
+			});
 		});
 
 		it('Should be able to exit', async () => {
@@ -474,7 +481,7 @@ describe("LandWorks Decentraland Staking", () => {
 
 			expect(await mockENTR.balanceOf(staking.address)).to.equal(REWARD.sub(REWARD_RATE));
 			expect(await mockENTR.balanceOf(nftHolder.address)).to.equal(REWARD_RATE);
-		})
+		});
 
 		it('Should emit correct events when exit', async () => {
 			await mockLandWorksNft.generateTestAssets(2, nftHolder.address);
@@ -489,6 +496,6 @@ describe("LandWorks Decentraland Staking", () => {
 				.to.emit(staking, "Withdrawn").withArgs(nftHolder.address, 6, [1, 2])
 				.to.emit(mockENTR, "Transfer").withArgs(staking.address, nftHolder.address, REWARD_RATE)
 				.to.emit(staking, "RewardPaid").withArgs(nftHolder.address, REWARD_RATE)
-		})
-	})
+		});
+	});
 });
