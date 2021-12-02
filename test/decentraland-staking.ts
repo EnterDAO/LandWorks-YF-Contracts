@@ -1,7 +1,7 @@
-import {ethers} from "hardhat";
-import {expect} from 'chai';
-import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {Contract} from "ethers";
+import { ethers } from "hardhat";
+import { expect } from 'chai';
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { Contract } from "ethers";
 describe("LandWorks Decentraland Staking", () => {
 
 	let owner: SignerWithAddress, nftHolder: SignerWithAddress, nonNftHolder: SignerWithAddress,
@@ -122,7 +122,7 @@ describe("LandWorks Decentraland Staking", () => {
 		await expect(staking.setRewardsDuration(REWARD_DURATION + 1)).to.revertedWith(expectedRevertMessage);
 	})
 
-	it('Should notifyRewardsAmount accordingly when period finished', async() => {
+	it('Should notifyRewardsAmount accordingly when period finished', async () => {
 		await staking.setRewardsDuration(10);
 		const tx = await staking.notifyRewardAmount(ethers.utils.parseEther("1"));
 		await tx.wait();
@@ -133,7 +133,7 @@ describe("LandWorks Decentraland Staking", () => {
 		expect(await staking.periodFinish()).to.equal(block.timestamp + 10);
 	});
 
-	it('Should notifyRewardsAmount accordingly when period has not finished', async() => {
+	it('Should notifyRewardsAmount accordingly when period has not finished', async () => {
 		const ONE_ENTR = ethers.utils.parseEther("1");
 		await staking.setRewardsDuration(10);
 		await staking.notifyRewardAmount(ONE_ENTR);
@@ -430,7 +430,7 @@ describe("LandWorks Decentraland Staking", () => {
 				expect(holder1EarnedT1).to.equal(REWARD_RATE);
 				expect(holder1EarnedT2).to.equal(REWARD_RATE.add(REWARD_RATE.div(5)));
 				expect(holder1EarnedT3).to.equal(0);
-				expect(holder1EarnedT4).to.equal(REWARD_RATE .div(5));
+				expect(holder1EarnedT4).to.equal(REWARD_RATE.div(5));
 				expect(await mockENTR.balanceOf(nftHolder.address)).to.equal(REWARD_RATE.mul(7).div(5));
 
 				expect(holder2EarnedT0).to.equal(0);
@@ -457,7 +457,7 @@ describe("LandWorks Decentraland Staking", () => {
 			await mockLandWorksNft.connect(nftHolder).setApprovalForAll(staking.address, true);
 			await staking.connect(nftHolder).stake([1, 2]);
 
-			await staking.connect(nftHolder).exit([1,2]);
+			await staking.connect(nftHolder).exit([1, 2]);
 			const balanceOfContractAfter = await mockLandWorksNft.balanceOf(staking.address);
 			expect(balanceOfContractAfter.toNumber()).to.equal(0);
 
@@ -481,7 +481,7 @@ describe("LandWorks Decentraland Staking", () => {
 			await mockLandWorksNft.connect(nftHolder).setApprovalForAll(staking.address, true);
 			await staking.connect(nftHolder).stake([1, 2]);
 
-			await expect(staking.connect(nftHolder).exit([1,2]))
+			await expect(staking.connect(nftHolder).exit([1, 2]))
 				.to.emit(mockLandWorksNft, "Transfer").withArgs(staking.address, nftHolder.address, 1)
 				.to.emit(mockLandWorksNft, "ConsumerChanged").withArgs(staking.address, ethers.constants.AddressZero, 1)
 				.to.emit(mockLandWorksNft, "Transfer").withArgs(staking.address, nftHolder.address, 2)
