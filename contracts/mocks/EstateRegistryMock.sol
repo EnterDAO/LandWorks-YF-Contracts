@@ -7,6 +7,10 @@ contract EstateRegistryMock is IDecentralandEstateRegistry {
     constructor() {}
 
     function getEstateSize(uint256 estateId) external pure returns (uint256) {
-        return 5;
+        if (estateId != 0) {
+            return 5;
+        } else {
+            return 0;
+        }
     }
 }
