@@ -35,6 +35,7 @@ contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard, Ownable,
     uint256 public metaverseId;
     address public landRegistry;
     IDecentralandEstateRegistry public estateRegistry;
+    mapping(uint256 => uint256) public estateSizes;
 
     /* ========== CONSTRUCTOR ========== */
 
@@ -117,6 +118,8 @@ contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard, Ownable,
             stakingToken.changeConsumer(msg.sender, tokenIds[i]);
             // Increment the amount which will be staked
             amount += getAmount(tokenIds[i]);
+            // Save the estate size, to be used on withdraw
+            estateSizes[tokenIds[i]] = getAmount(tokenIds[i]);
             // Save who is the owner of the token
             stakedAssets[tokenIds[i]] = msg.sender;
         }
@@ -139,9 +142,11 @@ contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard, Ownable,
             // Transfer LandWorks NFTs back to the owner
             stakingToken.safeTransferFrom(address(this), msg.sender, tokenIds[i]);
             // Increment the amount which will be withdrawn
-            amount += getAmount(tokenIds[i]);
+            amount += estateSizes[tokenIds[i]];
             // Cleanup stakedAssets for the current tokenId
             stakedAssets[tokenIds[i]] = address(0);
+            // Cleanup estateSizes for the current tokenId
+            estateSizes[tokenIds[i]] = 0;
         }
         _withdraw(amount);
 
