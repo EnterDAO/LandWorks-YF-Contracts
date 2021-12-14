@@ -28,7 +28,7 @@ task('deploy-decentraland', 'Deploys the LandWorks Decentraland YF Contract')
 
 module.exports = {
 	solidity: {
-		version: '0.8.9',
+		version: '0.8.10',
 		settings: {
 			optimizer: {
 				enabled: true,
