@@ -120,7 +120,7 @@ contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard, Ownable,
             amount += getAmount(tokenIds[i]);
             // Save the estate size, to be used on withdraw
             estateSizes[tokenIds[i]] = getAmount(tokenIds[i]);
-            // Save who is the owner of the token
+            // Save who is the staker/depositor of the token
             stakedAssets[tokenIds[i]] = msg.sender;
         }
         _stake(amount);
