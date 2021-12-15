@@ -187,6 +187,9 @@ describe("LandWorks Decentraland Staking", () => {
 				expect(await staking.balances(nftHolder.address)).to.equal(6);
 				expect(await staking.stakedAssets(1)).to.equal(nftHolder.address);
 				expect(await staking.stakedAssets(2)).to.equal(nftHolder.address);
+				// LAND should not be populated in estateSizes
+				expect(await staking.estateSizes(1)).to.be.equal(0);
+				expect(await staking.estateSizes(2)).to.be.equal(5);
 				expect(await mockLandWorksNft.consumerOf(1)).to.equal(nftHolder.address);
 				expect(await mockLandWorksNft.consumerOf(2)).to.equal(nftHolder.address);
 			});
@@ -205,6 +208,10 @@ describe("LandWorks Decentraland Staking", () => {
 				expect(await staking.stakedAssets(1)).to.equal(nftHolder.address);
 				expect(await staking.stakedAssets(2)).to.equal(nftHolder.address);
 				expect(await staking.stakedAssets(3)).to.equal(nftHolder.address);
+				// LAND should not be populated in estateSizes
+				expect(await staking.estateSizes(1)).to.be.equal(0);
+				expect(await staking.estateSizes(3)).to.be.equal(0);
+				expect(await staking.estateSizes(2)).to.be.equal(5);
 				expect(await mockLandWorksNft.consumerOf(1)).to.equal(nftHolder.address);
 				expect(await mockLandWorksNft.consumerOf(2)).to.equal(nftHolder.address);
 				expect(await mockLandWorksNft.consumerOf(3)).to.equal(nftHolder.address);
@@ -279,6 +286,9 @@ describe("LandWorks Decentraland Staking", () => {
 				expect(await staking.balances(nftHolder.address)).to.equal(6);
 				expect(await staking.stakedAssets(1)).to.equal(nftHolder.address);
 				expect(await staking.stakedAssets(2)).to.equal(nftHolder.address);
+				// LAND should not be populated in estateSizes
+				expect(await staking.estateSizes(1)).to.be.equal(0);
+				expect(await staking.estateSizes(2)).to.be.equal(5);
 				expect(await mockLandWorksNft.consumerOf(1)).to.equal(nftHolder.address);
 				expect(await mockLandWorksNft.consumerOf(2)).to.equal(nftHolder.address);
 
@@ -294,6 +304,10 @@ describe("LandWorks Decentraland Staking", () => {
 				expect(await staking.balances(nftHolder.address)).to.equal(0);
 				expect(await staking.stakedAssets(1)).to.equal(ethers.constants.AddressZero);
 				expect(await staking.stakedAssets(2)).to.equal(ethers.constants.AddressZero);
+				// LAND should not be populated in estateSizes
+				expect(await staking.estateSizes(1)).to.be.equal(0);
+				// Should clear estateSizes for withdrawn estate
+				expect(await staking.estateSizes(2)).to.be.equal(0);
 				expect(await mockLandWorksNft.consumerOf(1)).to.equal(ethers.constants.AddressZero);
 				expect(await mockLandWorksNft.consumerOf(2)).to.equal(ethers.constants.AddressZero);
 			});
@@ -302,6 +316,31 @@ describe("LandWorks Decentraland Staking", () => {
 				await staking.pause();
 				await expect(staking.connect(nftHolder).withdraw([1, 2])).to.not.be.reverted;
 			});
+
+			it('Should use the same amount even if estate size changes', async () => {
+				await estateRegistryMock.changeSize();
+				expect(await estateRegistryMock.getEstateSize(2)).to.equal(6);
+
+				await staking.connect(nftHolder).withdraw([2]);
+
+				const balanceOfContractAfter = await mockLandWorksNft.balanceOf(staking.address);
+				expect(balanceOfContractAfter.toNumber()).to.equal(1);
+
+				const balanceOfStaker = await mockLandWorksNft.balanceOf(nftHolder.address);
+				expect(balanceOfStaker.toNumber()).to.equal(1);
+				expect(await mockLandWorksNft.ownerOf(1)).to.equal(staking.address);
+				expect(await mockLandWorksNft.ownerOf(2)).to.equal(nftHolder.address);
+				expect(await staking.totalSupply()).to.equal(1);
+				expect(await staking.balances(nftHolder.address)).to.equal(1);
+				expect(await staking.stakedAssets(1)).to.equal(nftHolder.address);
+				expect(await staking.stakedAssets(2)).to.equal(ethers.constants.AddressZero);
+				// LAND should not be populated in estateSizes
+				expect(await staking.estateSizes(1)).to.be.equal(0);
+				// Should clear estateSizes for withdrawn estate
+				expect(await staking.estateSizes(2)).to.be.equal(0);
+				expect(await mockLandWorksNft.consumerOf(1)).to.equal(nftHolder.address);
+				expect(await mockLandWorksNft.consumerOf(2)).to.equal(ethers.constants.AddressZero);
+			})
 
 			it("Should emit events correctly on Withdraw", async () => {
 				await expect(staking.connect(nftHolder).withdraw([1, 2]))
