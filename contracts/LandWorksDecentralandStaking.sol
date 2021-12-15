@@ -89,9 +89,9 @@ contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard, Ownable,
         return rewardRate * rewardsDuration;
     }
 
-    /// @notice Gets the represented amount to be staked, based on the LandWorks NFT
+    /// @notice Computes the represented amount to be staked, based on the LandWorks NFT
     /// @param tokenId The tokenId of the LandWorks NFT
-    function getAmount(uint256 tokenId) public view returns (uint256) {
+    function computeAmount(uint256 tokenId) internal returns (uint256) {
         // Get the asset struct from Landworks
         ILandWorks.Asset memory landworksAsset = stakingToken.assetAt(tokenId);
         require(landworksAsset.metaverseId == metaverseId, "Staking: Invalid metaverseId");
@@ -100,14 +100,16 @@ contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard, Ownable,
             "Staking: Invalid metaverseRegistry");
 
         // If the asset is LAND, amount is 1
-        uint256 amountToBeStaked = 1;
+        uint256 computedAmount = 1;
         // If the asset is ESTATE, query the number of LAND's that it represents
         if (landworksAsset.metaverseRegistry == address(estateRegistry)) {
-            amountToBeStaked = estateRegistry.getEstateSize(
+            computedAmount = estateRegistry.getEstateSize(
                 landworksAsset.metaverseAssetId
             );
+            // Save the estate size, to be used on withdraw
+            estateSizes[tokenId] = computedAmount;
         }
-        return amountToBeStaked;
+        return computedAmount;
     }
 
     /* ========== MUTATIVE FUNCTIONS ========== */
@@ -124,9 +126,7 @@ contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard, Ownable,
             // Change the consumer of the LandWorks NFT to be the person who staked it
             stakingToken.changeConsumer(msg.sender, tokenIds[i]);
             // Increment the amount which will be staked
-            amount += getAmount(tokenIds[i]);
-            // Save the estate size, to be used on withdraw
-            estateSizes[tokenIds[i]] = getAmount(tokenIds[i]);
+            amount += computeAmount(tokenIds[i]);
             // Save who is the staker/depositor of the token
             stakedAssets[tokenIds[i]] = msg.sender;
         }
@@ -148,12 +148,16 @@ contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard, Ownable,
             );
             // Transfer LandWorks NFTs back to the owner
             stakingToken.safeTransferFrom(address(this), msg.sender, tokenIds[i]);
-            // Increment the amount which will be withdrawn
-            amount += estateSizes[tokenIds[i]];
+            // Only ESTATE tokens are populated in the map. If no size is populated, token is LAND
+            if (estateSizes[tokenIds[i]] == 0) {
+                amount++;
+            } else {
+                amount += estateSizes[tokenIds[i]];
+                // Cleanup estateSizes for the current tokenId
+                estateSizes[tokenIds[i]] = 0;
+            }
             // Cleanup stakedAssets for the current tokenId
             stakedAssets[tokenIds[i]] = address(0);
-            // Cleanup estateSizes for the current tokenId
-            estateSizes[tokenIds[i]] = 0;
         }
         _withdraw(amount);
 
