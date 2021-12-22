@@ -350,7 +350,7 @@ describe("LandWorks Decentraland Staking", () => {
 			});
 
 			it("Should not be able to withdraw LandWorks NFTs staked by other person", async () => {
-				const expectedRevertMessage = 'Staking: Not owner of the token';
+				const expectedRevertMessage = 'Staking: Not the staker of the token';
 				await expect(staking.connect(nonNftHolder).withdraw([1, 2])).revertedWith(expectedRevertMessage);
 			});
 

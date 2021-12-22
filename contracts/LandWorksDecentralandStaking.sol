@@ -146,7 +146,7 @@ contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard, Ownable,
             // Check if the user who withdraws is the owner
             require(
                 stakedAssets[tokenIds[i]] == msg.sender,
-                "Staking: Not owner of the token"
+                "Staking: Not the staker of the token"
             );
             // Transfer LandWorks NFTs back to the owner
             stakingToken.safeTransferFrom(address(this), msg.sender, tokenIds[i]);
