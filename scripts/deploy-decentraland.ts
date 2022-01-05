@@ -1,4 +1,4 @@
-import hardhat, {ethers} from 'hardhat';
+import hardhat, { ethers } from 'hardhat';
 
 async function deployDecentraland(
 	stakingToken: string,
@@ -20,7 +20,7 @@ async function deployDecentraland(
 		landRegistry,
 		estateRegistry
 	);
-	await lwDecentralandStaking.deployTransaction.wait(5);
+	await lwDecentralandStaking.deployTransaction.wait(10);
 	console.log("LandWorks YF deployed to:", lwDecentralandStaking.address);
 
 	/**
@@ -29,7 +29,7 @@ async function deployDecentraland(
 	console.log('Verifying LandWorks Decentraland YF on Etherscan...');
 	await hardhat.run('verify:verify', {
 		address: lwDecentralandStaking.address,
-		constructorArguments: [stakingToken, rewardsToken, duration, metaverseId, estateRegistry, landRegistry]
+		constructorArguments: [stakingToken, rewardsToken, duration, metaverseId, landRegistry, estateRegistry]
 	});
 }
 
