@@ -7,6 +7,9 @@
 
 </div>
 
+**Mainnet Deployment Address Addresses**
+- `LandWorksDecentralandStaking`: `0x36E59268239022702D88716f25fb462fa588Ea4d`
+
 ## Overview
 
 The repository contains contracts for farming with LandWork NFTs. Each lender in LandWorks receives an ERC-721
