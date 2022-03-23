@@ -141,24 +141,26 @@ contract LandWorksDecentralandStaking is ERC721Holder, ReentrancyGuard, Ownable,
     function withdraw(uint256[] memory tokenIds) public nonReentrant updateReward(msg.sender) {
         require(tokenIds.length != 0, "Staking: No tokenIds provided");
 
-        uint256 amount;
+        uint256 totalAmount;
         for (uint256 i = 0; i < tokenIds.length; i += 1) {
             // Check if the user who withdraws is the owner
             require(
                 stakedAssets[tokenIds[i]] == msg.sender,
                 "Staking: Not the staker of the token"
             );
-            // Transfer LandWorks NFTs back to the owner
-            stakingToken.safeTransferFrom(address(this), msg.sender, tokenIds[i]);
-            amount += stakedAssetSizes[tokenIds[i]];
+            uint256 tokenAmount = stakedAssetSizes[tokenIds[i]];
+            totalAmount += tokenAmount;
+            // Decrease total locked supply
+            _withdraw(tokenAmount);
             // Cleanup stakedAssetSizes for the current tokenId
             stakedAssetSizes[tokenIds[i]] = 0;
             // Cleanup stakedAssets for the current tokenId
             stakedAssets[tokenIds[i]] = address(0);
+            // Transfer LandWorks NFTs back to the owner
+            stakingToken.safeTransferFrom(address(this), msg.sender, tokenIds[i]);
         }
-        _withdraw(amount);
 
-        emit Withdrawn(msg.sender, amount, tokenIds);
+        emit Withdrawn(msg.sender, totalAmount, tokenIds);
     }
 
     function getReward() public nonReentrant updateReward(msg.sender) {
